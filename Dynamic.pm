@@ -4,10 +4,9 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '1.0';
+our $VERSION = '1.1';
 
 use base 'HTML::PopupTreeSelect';
-use HTML::Prototype;
 use Carp qw(croak);
 
 # template source files, included at the bottom
@@ -29,6 +28,8 @@ sub new {
 
     $self->{dynamic_params} ||= "";
 
+    $self->{include_prototype} = 1 unless defined $self->{include_prototype};
+
     return $self;
 }
 
@@ -39,9 +40,14 @@ sub output {
                                       die_on_bad_params => 0,
                                       global_vars       => 1,
                                      );
-    my $prototype = HTML::Prototype->new();
-    my $js = $prototype->define_javascript_functions;
-    $template->param(prototype_js => $js);
+    if( $self->{include_prototype} ) {
+        eval { require HTML::Prototype };
+        croak "requires HTML::Prototype unless 'include_prototype' option is fase"
+            if( $@ );
+        my $prototype = HTML::Prototype->new();
+        my $js = $prototype->define_javascript_functions;
+        $template->param(prototype_js => $js);
+    }
 
     # setup template parameters
     my %param = map { ($_, $self->{$_}) } qw(name height width 
@@ -76,11 +82,21 @@ sub handle_get_node {
 
     my @node_loop;
     if (not defined $id) {
-        # return the root
-        @node_loop = ( $self->_output_node($data, "0") );
+        # return the root (handle multiple roots if an array ref)
+        if( ref $data eq 'ARRAY' ) {
+            my $count = 0;
+            @node_loop = map {  $self->_output_node($_, $count++) } (@$data);
+        } elsif( ref $data eq 'HASH' ) {
+            @node_loop = ( $self->_output_node($data, "0") );
+        }
     } else {
         # return the children of this node
-        my $parent   = $self->_find_node($data, $id);
+        my $parent;
+        if( ref $data eq 'ARRAY' ) {
+            $parent   = $self->_find_node($data, $id);
+        } elsif( ref $data eq 'HASH' ) {
+            $parent   = $self->_find_node($data->children, $id);
+        }
         my $child_id = 0;
         foreach my $node (@{$parent->{children}}) {
             push(@node_loop, $self->_output_node($node, "$id/$child_id"));
@@ -108,12 +124,14 @@ sub handle_get_node {
 sub _find_node {
     my ($self, $data, $id) = @_;
 
-    # return final node
-    return $data->{children}[$id] if $id =~ /^\d+$/;
-
-    # recurse down a level
-    my ($car, $cdr) = split('/', $id, 2);
-    return $self->_find_node($data->{children}[$car], $cdr);
+    # if it's a single digit, then it's a leaf
+    if( $id =~ /^\d+$/ ) {
+        return $data->[$id];
+    } else {
+        # recurse down a level
+        my ($car, $cdr) = split('/', $id, 2);
+        return $self->_find_node($data->[$car]->{children}, $cdr);
+    }
 }
  
 sub _output_node {
@@ -516,7 +534,7 @@ HTML::PopupTreeSelect::Dynamic - dynamic version of HTML::PopupTreeSelect
 =head1 SYNOPSIS
 
 This module is used just like HTML::PopupTreeSelect, with the addition
-of two new parameters - C<dynamic_url> and C<dynamic_params>.  Here's
+of 3 new parameters - C<dynamic_url>, C<dynamic_params> and C<include_prototype>.  Here's
 a full example:
 
   use HTML::PopupTreeSelect::Dynamic;
@@ -554,12 +572,12 @@ a full example:
   # javascript function 'select_category(value)' when the user selects
   # a category.
   my $select = HTML::PopupTreeSelect::Dynamic->new(
-                 name         => 'category',
-                 data         => $data,
-                 title        => 'Select a Category',
-                 button_label => 'Choose',
-                 onselect     => 'select_category',
-                 ajax_params  => 'rm=get_node');
+                 name           => 'category',
+                 data           => $data,
+                 title          => 'Select a Category',
+                 button_label   => 'Choose',
+                 onselect       => 'select_category',
+                 dynamic_params => 'rm=get_node');
 
   # include it in your HTML page, for example using HTML::Template:
   $template->param(category_select => $select->output);
@@ -645,6 +663,14 @@ set "rm" to "get_node":
     $select = HTML::PopupTreeSelect::Dynamic->new(
                 dynamic_params => 'rm=get_node',
                 ...);
+
+=head2 additional new() param : include_prototype (optional)
+
+This options surpress the output of the C<Prototype.js> that comes
+from L<HTML::Prototype>. By default it is C<true>.
+
+It is useful to set this option to C<false> when you are already using
+F<prototype.js> in your templates via a C<< <script> >> tag.
 
 =head2 handle_get_node()
 
