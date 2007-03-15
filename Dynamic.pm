@@ -4,7 +4,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '1.1';
+our $VERSION = '1.2';
 
 use base 'HTML::PopupTreeSelect';
 use Carp qw(croak);
@@ -242,11 +242,7 @@ $TEMPLATE_SRC = <<END;
   var hpts_curr_width = <tmpl_if width><tmpl_var width><tmpl_else>225</tmpl_if>;
   var hpts_curr_height = <tmpl_if height><tmpl_var height><tmpl_else>200</tmpl_if>;
 
-  document.onmousedown = hpts_lock;
-  document.onmousemove = hpts_drag;
-  document.onmouseup   = hpts_release;
-
-  function hpts_lock(evt) {
+  hpts_lock = function(evt) {
         evt = (evt) ? evt : event;
         hpts_set_locked(evt);
         hpts_update_mouse(evt);
@@ -290,7 +286,7 @@ $TEMPLATE_SRC = <<END;
         return true;
   }
 
-  function hpts_update_mouse(evt) {
+  hpts_update_mouse = function(evt) {
       if (evt.pageX) {
          hpts_mouseX = evt.pageX;
          hpts_mouseY = evt.pageY;
@@ -301,7 +297,7 @@ $TEMPLATE_SRC = <<END;
   }
 
 
-  function hpts_set_locked(evt) {
+  hpts_set_locked = function(evt) {
     var target = (evt.target) ? evt.target : evt.srcElement;
     if (target && target.className == "hpts-title") { 
        hpts_locked_titlebar = target.parentNode;
@@ -315,7 +311,7 @@ $TEMPLATE_SRC = <<END;
     return;
   }
 
-  function hpts_drag(evt) {
+  hpts_drag = function(evt) {
         evt = (evt) ? evt : event;
         hpts_update_mouse(evt);
         var titleobj = document.getElementById("<tmpl_var name>-title");
@@ -341,7 +337,7 @@ $TEMPLATE_SRC = <<END;
         }
   }
 
-  function hpts_release(evt) {
+  hpts_release = function(evt) {
      hpts_locked_titlebar = null;
      if (hpts_locked_botbar){
      var widthstr = document.getElementById("<tmpl_var name>-inner").style.width;
@@ -352,12 +348,16 @@ $TEMPLATE_SRC = <<END;
      hpts_locked_botbar = null;
   }
 
+  document.onmousedown = hpts_lock;
+  document.onmousemove = hpts_drag;
+  document.onmouseup   = hpts_release;
+
   var <tmpl_var name>_selected_id = -1;
   var <tmpl_var name>_selected_val;
   var <tmpl_var name>_selected_elem;
 
   /* expand or collapse a sub-tree */
-  function <tmpl_var name>_toggle_expand(id) {
+  <tmpl_var name>_toggle_expand = function(id) {
      var obj = document.getElementById("<tmpl_var name>-desc-" + id);
      var plus = document.getElementById("<tmpl_var name>-plus-" + id);
      var node = document.getElementById("<tmpl_var name>-node-" + id);
@@ -366,7 +366,7 @@ $TEMPLATE_SRC = <<END;
         plus.src = "<tmpl_var image_path>minus.png";
         node.src = "<tmpl_var image_path>open_node.png";
 
-        new Ajax.Updater("<tmpl_var name>-desc-" + id, <tmpl_var dynamic_url>, { method: 'get', parameters: "<tmpl_if dynamic_params><tmpl_var dynamic_params>;</tmpl_if>id=" + id, evalScripts: true });
+        new Ajax.Updater("<tmpl_var name>-desc-" + id, <tmpl_var dynamic_url>, { method: 'get', parameters: "<tmpl_if dynamic_params><tmpl_var dynamic_params>&</tmpl_if>id=" + id, evalScripts: true });
      } else {
         obj.style.display = 'none';
         obj.innerHTTML    = '';
@@ -376,7 +376,7 @@ $TEMPLATE_SRC = <<END;
   }
 
   /* select or unselect a node */
-  function <tmpl_var name>_toggle_select(id, val) {
+  <tmpl_var name>_toggle_select = function(id, val) {
      if (<tmpl_var name>_selected_id != -1) {
         /* turn off old selected value */
         var old = document.getElementById("<tmpl_var name>-line-" + <tmpl_var name>_selected_id);
@@ -396,7 +396,7 @@ $TEMPLATE_SRC = <<END;
   }
 
   /* it's showtime! */
-  function <tmpl_var name>_show() {
+  <tmpl_var name>_show = function() {
         document.getElementById("<tmpl_var name>-inner").innerHTML = '';
         new Ajax.Updater('<tmpl_var name>-inner', <tmpl_var dynamic_url>, { method: 'get', parameters: "<tmpl_var dynamic_params>", evalScripts: true  });
 
@@ -434,9 +434,8 @@ $TEMPLATE_SRC = <<END;
   }
 
   /* user clicks the ok button */
-  function <tmpl_var name>_ok() {
+  <tmpl_var name>_ok = function() {
         if (<tmpl_var name>_selected_id == -1) {
-           /* ahomosezwha? */
            alert("Please select an item or click Cancel to cancel selection.");
            return;
         }
@@ -450,11 +449,11 @@ $TEMPLATE_SRC = <<END;
         <tmpl_var name>_close();
   }
 
-  function <tmpl_var name>_cancel() {
+  <tmpl_var name>_cancel = function() {
         <tmpl_var name>_close();
   }
 
-  function <tmpl_var name>_close () {
+  <tmpl_var name>_close  = function() {
         /* hide window */
         var obj = document.getElementById("<tmpl_var name>-outer");
         obj.style.visibility = "hidden";         
